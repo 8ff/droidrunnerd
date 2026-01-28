@@ -1,0 +1,17 @@
+services:
+  droidrun:
+    build: .
+    container_name: droidrun
+    # Privileged mode needed for USB device access
+    privileged: true
+    network_mode: host
+    volumes:
+      # USB devices for ADB
+      - /dev/bus/usb:/dev/bus/usb
+      # ADB authorization keys (so phone stays authorized)
+      - ~/.android:/root/.android
+    environment:
+      # Server authentication (set in .env file or here)
+      - DROIDRUN_SERVER_KEY=${DROIDRUN_SERVER_KEY:-}
+      - PORT=8000
+    restart: unless-stopped

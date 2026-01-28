@@ -1,0 +1,30 @@
+# WhatsApp auto-reply task
+
+[task]
+name = "whatsapp-reply"
+description = "Reply to unreplied WhatsApp messages"
+
+[task.goal]
+app = "com.whatsapp"
+prompt = """
+1. Go to the Chats tab (not Updates, Communities, or Calls)
+2. Look for chats that need a reply - these are chats where the last message is on the LEFT side (messages from others). Messages on the RIGHT side in green are ones we sent.
+3. For each chat needing a reply:
+   - Open the chat
+   - Read recent messages to understand context
+   - Send an appropriate reply
+   - Go back to chat list
+4. Skip chats where the last message is on the right (we already replied)
+5. Return to home desktop when done.
+6. Report which chats you replied to and what you said
+"""
+
+[task.model]
+provider = "Google"       # Google, Anthropic, OpenAI, DeepSeek, Ollama
+model = "gemini-flash-latest"
+# api_key from env: GOOGLE_API_KEY, ANTHROPIC_API_KEY, etc.
+
+[task.options]
+reasoning = true
+vision = false
+max_steps = 20

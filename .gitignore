@@ -1,0 +1,41 @@
+# Binaries
+server/droidrun-server
+server/droidrun-server-*
+client/droidrun-client
+client/droidrun-client-*
+*.exe
+
+# Environment and secrets
+.env
+.env.*
+*.key
+*.pem
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Go
+*.test
+coverage.out
+coverage.html
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+*.egg-info/
+venv/
+.venv/
+
+# Build artifacts
+dist/
+build/

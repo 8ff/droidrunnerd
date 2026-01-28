@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Test Server
+        run: |
+          cd server
+          go test -v -race ./...
+
+      - name: Test Server Coverage
+        run: |
+          cd server
+          go test -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, darwin]
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build Server
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          cd server
+          go build -ldflags "-X main.Version=${{ github.sha }}" -o droidrun-server-${{ matrix.goos }}-${{ matrix.goarch }}
+
+      - name: Build Client
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          cd client
+          go build -ldflags "-X main.Version=${{ github.sha }}" -o droidrun-client-${{ matrix.goos }}-${{ matrix.goarch }}
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: golangci-lint (server)
+        uses: golangci/golangci-lint-action@v4
+        with:
+          working-directory: server
+          version: latest
+
+      - name: golangci-lint (client)
+        uses: golangci/golangci-lint-action@v4
+        with:
+          working-directory: client
+          version: latest
+
+  python-security:
+    name: Python Security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install bandit
+        run: pip install bandit
+
+      - name: Run bandit
+        run: bandit -r worker.py -ll
+        continue-on-error: true  # Advisory only for now
