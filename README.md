@@ -9,15 +9,20 @@ A production-ready HTTP task queue server for [droidrun](https://github.com/droi
 ## Quick Start
 
 ```bash
-# Build the server
-cd server && go build -o droidrun-server
+# Pull prebuilt container
+docker pull ghcr.io/8ff/droidrunnerd:latest
 
-# Start the server
-./droidrun-server 8000 ./worker.py
+# Run with mandatory server key
+docker run -d --name droidrun \
+  --network=host \
+  -v ~/.android:/root/.android \
+  -e DROIDRUN_SERVER_KEY="your-secret-key" \
+  ghcr.io/8ff/droidrunnerd:latest
 
-# Submit a task (using header-based API key)
+# Submit a task
 curl -X POST http://localhost:8000/run \
   -H "Content-Type: application/json" \
+  -H "X-Server-Key: your-secret-key" \
   -H "X-API-Key: $GOOGLE_API_KEY" \
   -d '{"goal":"open settings","provider":"Google"}'
 ```
@@ -105,8 +110,11 @@ cd client && go build -o droidrun-client -ldflags "-X main.Version=0.2.0"
 ### Go Client
 
 ```bash
+# Set server key (required)
+export DROIDRUN_SERVER_KEY="your-secret-key"
+
 # Simple task
-./droidrun-client -key $GOOGLE_API_KEY "open settings"
+./droidrun-client -server http://localhost:8000 -key $GOOGLE_API_KEY "open settings"
 
 # With task file
 ./droidrun-client -task tasks/whatsapp-reply.toml -server http://10.0.0.65:8000
@@ -124,17 +132,18 @@ cd client && go build -o droidrun-client -ldflags "-X main.Version=0.2.0"
 # Submit task
 curl -X POST http://localhost:8000/run \
   -H "Content-Type: application/json" \
+  -H "X-Server-Key: $DROIDRUN_SERVER_KEY" \
   -H "X-API-Key: $GOOGLE_API_KEY" \
   -d '{"goal":"open settings","provider":"Google"}'
 
 # Check status
-curl http://localhost:8000/task/TASK_ID
+curl -H "X-Server-Key: $DROIDRUN_SERVER_KEY" http://localhost:8000/task/TASK_ID
 
-# Health check
+# Health check (no auth required)
 curl http://localhost:8000/health
 
 # View queue
-curl http://localhost:8000/queue
+curl -H "X-Server-Key: $DROIDRUN_SERVER_KEY" http://localhost:8000/queue
 ```
 
 ## API Reference
@@ -145,7 +154,8 @@ Submit a task to the queue.
 
 **Headers:**
 - `Content-Type: application/json`
-- `X-API-Key: <your-api-key>` (required except for Ollama)
+- `X-Server-Key: <server-key>` (required)
+- `X-API-Key: <your-llm-api-key>` (required except for Ollama)
 
 **Request Body:**
 ```json
@@ -255,6 +265,7 @@ All errors return JSON:
 
 Common errors:
 - `400` - Invalid request (missing goal, invalid provider, etc.)
+- `401` - Unauthorized (missing or invalid `X-Server-Key`)
 - `404` - Task not found
 - `405` - Method not allowed
 
