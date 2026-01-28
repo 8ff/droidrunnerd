@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/8ff/droidrunnerd/actions/workflows/ci.yml/badge.svg)](https://github.com/8ff/droidrunnerd/actions/workflows/ci.yml)
 
-API server that automates your Android phone using LLMs (Claude, ChatGPT, Gemini, DeepSeek, Ollama) - just describe what you want done.
+API server for [droidrun](https://github.com/droidrun/droidrun) - automate your Android phone using LLMs (Claude, ChatGPT, Gemini, DeepSeek, Ollama). Just describe what you want done.
 
 ## Prerequisites
 
@@ -307,6 +307,10 @@ docker exec droidrun adb devices
 
 **Container won't start:**
 - Ensure `DROIDRUN_SERVER_KEY` is set (required)
+
+## Credits
+
+This project is a wrapper around [droidrun](https://github.com/droidrun/droidrun) - the actual Android automation magic happens there. Check them out!
 
 ## License
 
