@@ -262,14 +262,14 @@ Common errors:
 
 ### Server Authentication
 
-Protect your server from unauthorized access by setting `DROIDRUN_SERVER_KEY`:
+Server authentication is **mandatory**. Set `DROIDRUN_SERVER_KEY` environment variable:
 
 ```bash
 export DROIDRUN_SERVER_KEY="your-secret-key"
 ./droidrun-server
 ```
 
-When enabled, all requests (except `/health`) must include the `X-Server-Key` header:
+All requests (except `/health`) must include the `X-Server-Key` header:
 
 ```bash
 curl -X POST http://localhost:8000/run \
@@ -278,7 +278,7 @@ curl -X POST http://localhost:8000/run \
   -d '{"goal":"open settings"}'
 ```
 
-**Note:** Without `DROIDRUN_SERVER_KEY` set, the server runs without authentication. Always enable this in production.
+The server will refuse to start without `DROIDRUN_SERVER_KEY` configured.
 
 ### LLM API Key Handling
 

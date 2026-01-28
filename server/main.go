@@ -33,6 +33,11 @@ var validProviders = map[string]bool{
 }
 
 func main() {
+	// Server authentication is mandatory
+	if serverAPIKey == "" {
+		log.Fatal("DROIDRUN_SERVER_KEY environment variable is required")
+	}
+
 	port := "8000"
 	if len(os.Args) > 1 {
 		port = os.Args[1]
@@ -77,11 +82,7 @@ func main() {
 
 	log.Printf("DroidRun server v%s starting on :%s", Version, port)
 	log.Printf("Worker: %s", workerPath)
-	if serverAPIKey != "" {
-		log.Printf("Server authentication: enabled")
-	} else {
-		log.Printf("Server authentication: disabled (set DROIDRUN_SERVER_KEY to enable)")
-	}
+	log.Printf("Server authentication: enabled")
 
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("Server error: %v", err)
@@ -116,7 +117,7 @@ func (a *API) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Request-ID", requestID)
 
 	// Server authentication (skip for health check)
-	if serverAPIKey != "" && r.URL.Path != "/health" {
+	if r.URL.Path != "/health" {
 		if r.Header.Get("X-Server-Key") != serverAPIKey {
 			writeError(w, "unauthorized", http.StatusUnauthorized)
 			return
