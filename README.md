@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/8ff/droidrunnerd/actions/workflows/ci.yml/badge.svg)](https://github.com/8ff/droidrunnerd/actions/workflows/ci.yml)
 
-HTTP task queue for [droidrun](https://github.com/droidrun/droidrun) - LLM-powered Android automation.
+API server that automates your Android phone using LLMs (Claude, ChatGPT, Gemini, DeepSeek, Ollama) - just describe what you want done.
 
 ## Prerequisites
 
@@ -12,11 +12,13 @@ HTTP task queue for [droidrun](https://github.com/droidrun/droidrun) - LLM-power
 3. Connect phone via USB
 4. When prompted, tap **"Allow"** to authorize your computer
 
-### Get an LLM API Key
+### Get an API Key
 Get a key from one of the supported providers:
-- [Google AI Studio](https://aistudio.google.com/apikey) (recommended)
-- [Anthropic](https://console.anthropic.com/)
-- [OpenAI](https://platform.openai.com/api-keys)
+- [Google AI Studio](https://aistudio.google.com/apikey) - Gemini (recommended)
+- [Anthropic](https://console.anthropic.com/) - Claude
+- [OpenAI](https://platform.openai.com/api-keys) - ChatGPT / GPT-4
+- [DeepSeek](https://platform.deepseek.com/) - DeepSeek
+- [Ollama](https://ollama.ai/) - Local models (no API key needed)
 
 ## Quick Start
 
@@ -34,7 +36,44 @@ docker run -d --name droidrun \
 curl http://localhost:8000/health
 ```
 
-> **Mac users:** Replace `--network=host` with `-p 8000:8000`
+> **Mac users:** Replace `--network=host` with `-p 8000:8000`. See [Wireless ADB](#wireless-adb-mac--no-usb) below.
+
+## Wireless ADB (Mac / No USB)
+
+Docker on Mac doesn't support USB passthrough, so you'll need to connect to your phone over WiFi instead.
+
+### Phone Setup (Android 11+)
+
+1. Go to **Settings > Developer Options > Wireless debugging**
+2. Enable **Wireless debugging**
+3. Tap **Pair device with pairing code** - note the pairing code and IP:port
+
+### Start the Server
+
+```bash
+docker run -d --name droidrun \
+  --privileged \
+  -p 8000:8000 \
+  -v ~/.android:/root/.android \
+  -e DROIDRUN_SERVER_KEY="change-me" \
+  ghcr.io/8ff/droidrunnerd:latest
+```
+
+### Connect via ADB
+
+```bash
+# Pair (one-time) - use IP:port and code from Wireless debugging screen
+docker exec -it droidrun adb pair 192.168.1.100:37123
+# Enter pairing code when prompted
+
+# Connect (use the main IP:port shown under "Wireless debugging", not the pairing port)
+docker exec droidrun adb connect 192.168.1.100:5555
+
+# Verify connection
+docker exec droidrun adb devices
+```
+
+> **Note:** The pairing port (e.g., 37123) and connect port (e.g., 5555) are different. Check the Wireless debugging screen for both.
 
 ## Usage
 
@@ -46,10 +85,14 @@ curl http://localhost:8000/health
 
 # Set credentials
 export DROIDRUN_SERVER_KEY="change-me"
-export GOOGLE_API_KEY="your-api-key"
+export LLM_API_KEY="your-api-key"
 
-# Run a task
-./droidrun-client -server http://localhost:8000 -key $GOOGLE_API_KEY "open settings"
+# Run a task (defaults to Google/Gemini)
+./droidrun-client -server http://localhost:8000 -key $LLM_API_KEY "open settings"
+
+# Specify provider and model
+./droidrun-client -server http://localhost:8000 -key $LLM_API_KEY \
+  -provider Anthropic -model claude-sonnet-4-20250514 "open settings"
 
 # Run a predefined task
 ./droidrun-client -server http://localhost:8000 -task tasks/whatsapp-reply.toml
@@ -58,12 +101,19 @@ export GOOGLE_API_KEY="your-api-key"
 ### curl
 
 ```bash
-# Submit a task
+# Submit a task (defaults to Google/Gemini)
 curl -X POST http://localhost:8000/run \
   -H "Content-Type: application/json" \
   -H "X-Server-Key: $DROIDRUN_SERVER_KEY" \
-  -H "X-API-Key: $GOOGLE_API_KEY" \
+  -H "X-API-Key: $LLM_API_KEY" \
   -d '{"goal":"open WhatsApp and send hello to Mom"}'
+
+# With specific provider/model
+curl -X POST http://localhost:8000/run \
+  -H "Content-Type: application/json" \
+  -H "X-Server-Key: $DROIDRUN_SERVER_KEY" \
+  -H "X-API-Key: $LLM_API_KEY" \
+  -d '{"goal":"open WhatsApp", "provider":"Anthropic", "model":"claude-sonnet-4-20250514"}'
 
 # Check task status
 curl -H "X-Server-Key: $DROIDRUN_SERVER_KEY" http://localhost:8000/task/TASK_ID
