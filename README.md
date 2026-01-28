@@ -72,24 +72,153 @@ curl -X DELETE -H "X-Server-Key: $DROIDRUN_SERVER_KEY" http://localhost:8000/tas
 
 ## API Reference
 
-All endpoints (except `/health`) require `X-Server-Key` header.
+**Base URL:** `http://localhost:8000`
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/run` | POST | Submit a task |
-| `/task/{id}` | GET | Get task status |
-| `/task/{id}` | DELETE | Cancel task |
-| `/health` | GET | Health check (no auth) |
+**Authentication:** All endpoints except `/health` require the `X-Server-Key` header.
 
-**Task request fields:**
-| Field | Required | Default | Description |
-|-------|----------|---------|-------------|
-| `goal` | Yes | - | What you want the agent to do |
-| `provider` | No | `Google` | `Google`, `Anthropic`, `OpenAI`, `DeepSeek`, `Ollama` |
-| `model` | No | auto | Model name (e.g., `gemini-2.0-flash`) |
-| `max_steps` | No | `30` | Max steps (1-100) |
+---
 
-**Task status values:** `queued`, `running`, `completed`, `failed`, `cancelled`
+### POST /run
+
+Submit a new task to the queue.
+
+**Headers:**
+```
+Content-Type: application/json
+X-Server-Key: your-server-key
+X-API-Key: your-llm-api-key
+```
+
+**Request:**
+```json
+{
+  "goal": "open WhatsApp and check unread messages",
+  "provider": "Google",
+  "model": "gemini-2.0-flash",
+  "max_steps": 30
+}
+```
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `goal` | string | Yes | - | What you want the agent to do |
+| `provider` | string | No | `Google` | LLM provider (see below) |
+| `model` | string | No | auto | Model name |
+| `max_steps` | int | No | `30` | Maximum steps (1-100) |
+
+**Providers:**
+| Provider | Default Model |
+|----------|---------------|
+| `Google` | `gemini-2.0-flash` |
+| `Anthropic` | `claude-sonnet-4-20250514` |
+| `OpenAI` | `gpt-4o` |
+| `DeepSeek` | `deepseek-chat` |
+| `Ollama` | `llama3.2` |
+
+**Response:** `200 OK`
+```json
+{
+  "task_id": "a1b2c3d4",
+  "status": "queued",
+  "position": 0
+}
+```
+
+---
+
+### GET /task/{id}
+
+Get task status and result.
+
+**Headers:**
+```
+X-Server-Key: your-server-key
+```
+
+**Response:** `200 OK`
+```json
+{
+  "id": "a1b2c3d4",
+  "status": "completed",
+  "success": true,
+  "result": "Found 3 unread messages in WhatsApp",
+  "error": "",
+  "logs": "...",
+  "steps": [...],
+  "request": {
+    "goal": "open WhatsApp and check unread messages",
+    "provider": "Google",
+    "model": "gemini-2.0-flash",
+    "max_steps": 30
+  },
+  "created_at": "2025-01-28T10:00:00Z",
+  "started_at": "2025-01-28T10:00:01Z",
+  "finished_at": "2025-01-28T10:00:15Z"
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `status` | `queued`, `running`, `completed`, `failed`, `cancelled` |
+| `success` | Whether the goal was achieved |
+| `result` | Agent's final answer/summary |
+| `error` | Error message if failed |
+| `logs` | Execution logs |
+| `steps` | Array of steps taken |
+
+---
+
+### DELETE /task/{id}
+
+Cancel a queued or running task.
+
+**Headers:**
+```
+X-Server-Key: your-server-key
+```
+
+**Response:** `200 OK`
+```json
+{
+  "status": "cancelled"
+}
+```
+
+---
+
+### GET /health
+
+Health check. No authentication required.
+
+**Response:** `200 OK`
+```json
+{
+  "status": "ok",
+  "version": "1.0.0",
+  "queue_size": 0,
+  "current_task": ""
+}
+```
+
+---
+
+### Errors
+
+All errors return JSON:
+
+```json
+{
+  "error": "error message",
+  "request_id": "abc123"
+}
+```
+
+| Code | Description |
+|------|-------------|
+| `400` | Bad request (invalid JSON, missing goal, etc.) |
+| `401` | Unauthorized (missing or invalid `X-Server-Key`) |
+| `404` | Task not found |
+| `405` | Method not allowed |
 
 ## Build from Source
 
