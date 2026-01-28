@@ -120,9 +120,12 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		var result map[string]any
-		json.NewDecoder(resp.Body).Decode(&result)
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			fmt.Fprintf(os.Stderr, "Error decoding response: %v\n", err)
+			os.Exit(1)
+		}
 		if !*quiet {
 			fmt.Printf("Cleared %v tasks\n", result["cleared"])
 		}
@@ -244,7 +247,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Check for error response
 	if resp.StatusCode != http.StatusOK {
@@ -259,7 +262,10 @@ func main() {
 	}
 
 	var submitResp SubmitResponse
-	json.NewDecoder(resp.Body).Decode(&submitResp)
+	if err := json.NewDecoder(resp.Body).Decode(&submitResp); err != nil {
+		fmt.Fprintf(os.Stderr, "Error decoding response: %v\n", err)
+		os.Exit(1)
+	}
 
 	if submitResp.TaskID == "" {
 		fmt.Fprintln(os.Stderr, "Error: no task ID received")
@@ -283,7 +289,7 @@ func main() {
 		if srvKey != "" {
 			cancelReq.Header.Set("X-Server-Key", srvKey)
 		}
-		http.DefaultClient.Do(cancelReq)
+		_, _ = http.DefaultClient.Do(cancelReq) // Best effort cancel before exit
 		os.Exit(130)
 	}()
 
@@ -300,8 +306,12 @@ func main() {
 		}
 
 		var status TaskStatus
-		json.NewDecoder(resp.Body).Decode(&status)
-		resp.Body.Close()
+		if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
+			_ = resp.Body.Close()
+			time.Sleep(2 * time.Second)
+			continue
+		}
+		_ = resp.Body.Close()
 
 		switch status.Status {
 		case "queued":
