@@ -28,16 +28,18 @@ jobs:
               echo "Building $GOOS/$GOARCH..."
 
               # Server
+              cd server
               GOOS=$GOOS GOARCH=$GOARCH go build \
                 -ldflags "-X main.Version=$VERSION" \
-                -o "droidrun-server-$GOOS-$GOARCH" \
-                ./server
+                -o "../droidrun-server-$GOOS-$GOARCH"
+              cd ..
 
               # Client
+              cd client
               GOOS=$GOOS GOARCH=$GOARCH go build \
                 -ldflags "-X main.Version=$VERSION" \
-                -o "droidrun-client-$GOOS-$GOARCH" \
-                ./client
+                -o "../droidrun-client-$GOOS-$GOARCH"
+              cd ..
             done
           done
 
