@@ -21,7 +21,7 @@ Get a key from one of the supported providers:
 ## Quick Start
 
 ```bash
-# 1. Pull and run the container
+# 1. Start the server
 docker run -d --name droidrun \
   --privileged \
   --network=host \
@@ -30,36 +30,58 @@ docker run -d --name droidrun \
   -e DROIDRUN_SERVER_KEY="change-me" \
   ghcr.io/8ff/droidrunnerd:latest
 
-# 2. Check it's running
+# 2. Verify it's running
 curl http://localhost:8000/health
-
-# 3. Submit a task
-curl -X POST http://localhost:8000/run \
-  -H "Content-Type: application/json" \
-  -H "X-Server-Key: change-me" \
-  -H "X-API-Key: YOUR_GOOGLE_API_KEY" \
-  -d '{"goal":"open settings"}'
 ```
 
-## API
+## Usage
 
-All endpoints (except `/health`) require `X-Server-Key` header.
-
-### POST /run - Submit Task
+### CLI Client (Recommended)
 
 ```bash
+# Download the client (or build: cd client && go build -o droidrun-client)
+# Releases: https://github.com/8ff/droidrunnerd/releases
+
+# Set credentials
+export DROIDRUN_SERVER_KEY="change-me"
+export GOOGLE_API_KEY="your-api-key"
+
+# Run a task
+./droidrun-client -server http://localhost:8000 -key $GOOGLE_API_KEY "open settings"
+
+# Run a predefined task
+./droidrun-client -server http://localhost:8000 -task tasks/whatsapp-reply.toml
+```
+
+### curl
+
+```bash
+# Submit a task
 curl -X POST http://localhost:8000/run \
   -H "Content-Type: application/json" \
   -H "X-Server-Key: $DROIDRUN_SERVER_KEY" \
   -H "X-API-Key: $GOOGLE_API_KEY" \
-  -d '{
-    "goal": "open WhatsApp and send hello to Mom",
-    "provider": "Google",
-    "max_steps": 30
-  }'
+  -d '{"goal":"open WhatsApp and send hello to Mom"}'
+
+# Check task status
+curl -H "X-Server-Key: $DROIDRUN_SERVER_KEY" http://localhost:8000/task/TASK_ID
+
+# Cancel a task
+curl -X DELETE -H "X-Server-Key: $DROIDRUN_SERVER_KEY" http://localhost:8000/task/TASK_ID
 ```
 
-**Request fields:**
+## API Reference
+
+All endpoints (except `/health`) require `X-Server-Key` header.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/run` | POST | Submit a task |
+| `/task/{id}` | GET | Get task status |
+| `/task/{id}` | DELETE | Cancel task |
+| `/health` | GET | Health check (no auth) |
+
+**Task request fields:**
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `goal` | Yes | - | What you want the agent to do |
@@ -67,36 +89,7 @@ curl -X POST http://localhost:8000/run \
 | `model` | No | auto | Model name (e.g., `gemini-2.0-flash`) |
 | `max_steps` | No | `30` | Max steps (1-100) |
 
-### GET /task/{id} - Check Status
-
-```bash
-curl -H "X-Server-Key: $DROIDRUN_SERVER_KEY" http://localhost:8000/task/abc123
-```
-
-**Status values:** `queued`, `running`, `completed`, `failed`, `cancelled`
-
-### DELETE /task/{id} - Cancel Task
-
-```bash
-curl -X DELETE -H "X-Server-Key: $DROIDRUN_SERVER_KEY" http://localhost:8000/task/abc123
-```
-
-### GET /health - Health Check
-
-```bash
-curl http://localhost:8000/health
-```
-
-## CLI Client
-
-```bash
-# Build
-cd client && go build -o droidrun-client
-
-# Use
-export DROIDRUN_SERVER_KEY="change-me"
-./droidrun-client -server http://localhost:8000 -key $GOOGLE_API_KEY "open settings"
-```
+**Task status values:** `queued`, `running`, `completed`, `failed`, `cancelled`
 
 ## Build from Source
 
