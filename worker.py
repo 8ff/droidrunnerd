@@ -50,6 +50,7 @@ async def run_task(task: dict) -> dict:
         agent=AgentConfig(
             reasoning=task.get("reasoning", True),
             max_steps=task.get("max_steps", 30),
+            stream=False,  # Disable streaming to avoid llama-index async generator bug
         )
     )
 
