@@ -34,6 +34,8 @@ docker run -d --name droidrun \
 curl http://localhost:8000/health
 ```
 
+> **Mac users:** Replace `--network=host` with `-p 8000:8000`
+
 ## Usage
 
 ### CLI Client (Recommended)
