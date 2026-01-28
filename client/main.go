@@ -32,8 +32,9 @@ type TaskConfig struct {
 }
 
 type GoalConfig struct {
-	Prompt string `toml:"prompt"`
-	App    string `toml:"app"` // package name to launch first
+	Prompt   string `toml:"prompt"`
+	App      string `toml:"app"`      // package name to launch first
+	Deeplink string `toml:"deeplink"` // deep link URI to open (e.g. instagram://mainfeed)
 }
 
 type ModelConfig struct {
@@ -51,6 +52,7 @@ type Options struct {
 type TaskRequest struct {
 	Goal      string `json:"goal"`
 	App       string `json:"app,omitempty"`
+	Deeplink  string `json:"deeplink,omitempty"`
 	Provider  string `json:"provider,omitempty"`
 	Model     string `json:"model,omitempty"`
 	Reasoning bool   `json:"reasoning"`
@@ -91,6 +93,8 @@ func main() {
 	apiKey := flag.String("key", "", "API key (or set env var based on provider)")
 	taskFile := flag.String("task", "", "Task file (TOML)")
 	appPkg := flag.String("app", "", "App package to launch first (e.g. com.whatsapp)")
+	deeplink := flag.String("deeplink", "", "Deep link URI to open (e.g. instagram://mainfeed)")
+	deeplinksApp := flag.String("deeplinks", "", "Discover deep links for an app package (e.g. com.instagram.android)")
 	clearTasks := flag.Bool("clear", false, "Clear all tasks from server queue")
 	quiet := flag.Bool("quiet", false, "Quiet mode - minimal output for scripting")
 	showVersion := flag.Bool("version", false, "Show version and exit")
@@ -132,7 +136,50 @@ func main() {
 		os.Exit(0)
 	}
 
-	var goal, prov, mod, app string
+	// Handle -deeplinks flag: discover deep links for an app
+	if *deeplinksApp != "" {
+		dlReq, _ := http.NewRequest("GET", *server+"/deeplinks?app="+*deeplinksApp, nil)
+		if srvKey != "" {
+			dlReq.Header.Set("X-Server-Key", srvKey)
+		}
+		dlResp, err := http.DefaultClient.Do(dlReq)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		defer func() { _ = dlResp.Body.Close() }()
+
+		if dlResp.StatusCode != http.StatusOK {
+			var errResp ErrorResponse
+			bodyBytes, _ := io.ReadAll(dlResp.Body)
+			if json.Unmarshal(bodyBytes, &errResp) == nil && errResp.Error != "" {
+				fmt.Fprintf(os.Stderr, "Error: %s\n", errResp.Error)
+			} else {
+				fmt.Fprintf(os.Stderr, "Error: %s\n", string(bodyBytes))
+			}
+			os.Exit(1)
+		}
+
+		var dlResult struct {
+			App       string   `json:"app"`
+			Deeplinks []string `json:"deeplinks"`
+		}
+		if err := json.NewDecoder(dlResp.Body).Decode(&dlResult); err != nil {
+			fmt.Fprintf(os.Stderr, "Error decoding response: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Printf("Deep links for %s:\n", dlResult.App)
+		if len(dlResult.Deeplinks) == 0 {
+			fmt.Println("  (none found)")
+		}
+		for _, dl := range dlResult.Deeplinks {
+			fmt.Printf("  %s\n", dl)
+		}
+		os.Exit(0)
+	}
+
+	var goal, prov, mod, app, dl string
 	var reason, vis bool
 	var steps int
 
@@ -146,6 +193,7 @@ func main() {
 
 		goal = tf.Task.Goal.Prompt
 		app = tf.Task.Goal.App
+		dl = tf.Task.Goal.Deeplink
 		prov = tf.Task.Model.Provider
 		mod = tf.Task.Model.Model
 		reason = tf.Task.Options.Reasoning
@@ -191,6 +239,9 @@ func main() {
 	if *appPkg != "" {
 		app = *appPkg
 	}
+	if *deeplink != "" {
+		dl = *deeplink
+	}
 
 	// Get API key from flag or env
 	key := *apiKey
@@ -220,6 +271,9 @@ func main() {
 		if app != "" {
 			fmt.Printf("App:     %s\n", app)
 		}
+		if dl != "" {
+			fmt.Printf("Link:    %s\n", dl)
+		}
 		fmt.Printf("Goal:    %s\n\n", truncate(goal, 60))
 	}
 
@@ -227,6 +281,7 @@ func main() {
 	req := TaskRequest{
 		Goal:      goal,
 		App:       app,
+		Deeplink:  dl,
 		Provider:  prov,
 		Model:     mod,
 		Reasoning: reason,

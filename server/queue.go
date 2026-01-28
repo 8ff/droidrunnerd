@@ -16,6 +16,7 @@ import (
 type TaskRequest struct {
 	Goal      string `json:"goal"`
 	App       string `json:"app,omitempty"`
+	Deeplink  string `json:"deeplink,omitempty"`
 	Provider  string `json:"provider"`
 	Model     string `json:"model"`
 	Reasoning bool   `json:"reasoning"`
@@ -29,6 +30,7 @@ type TaskRequest struct {
 type TaskRequestSafe struct {
 	Goal      string `json:"goal"`
 	App       string `json:"app,omitempty"`
+	Deeplink  string `json:"deeplink,omitempty"`
 	Provider  string `json:"provider"`
 	Model     string `json:"model"`
 	Reasoning bool   `json:"reasoning"`
@@ -89,6 +91,7 @@ func (q *Queue) Submit(req TaskRequest, apiKey string) *Task {
 		Request: TaskRequestSafe{
 			Goal:      req.Goal,
 			App:       req.App,
+			Deeplink:  req.Deeplink,
 			Provider:  req.Provider,
 			Model:     req.Model,
 			Reasoning: req.Reasoning,
@@ -230,6 +233,7 @@ func (q *Queue) process(id string) {
 	input, _ := json.Marshal(map[string]any{
 		"goal":      task.Request.Goal,
 		"app":       task.Request.App,
+		"deeplink":  task.Request.Deeplink,
 		"provider":  task.Request.Provider,
 		"model":     task.Request.Model,
 		"reasoning": task.Request.Reasoning,

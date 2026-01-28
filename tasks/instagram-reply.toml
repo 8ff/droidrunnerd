@@ -1,0 +1,38 @@
+# Instagram notification reply task
+
+[task]
+name = "instagram-reply"
+description = "Check unread Instagram notifications for comments or likes and reply to them"
+
+[task.goal]
+app = ""
+prompt = """
+1. Pull down the notification shade by swiping down from the very top of the screen
+2. Look through the phone notifications for any from Instagram about:
+   - Comments on your posts
+   - Likes on your posts
+3. For each Instagram COMMENT notification:
+   - Tap on the notification to open it directly in Instagram
+   - Read the comment to understand context
+   - Reply to the comment with a friendly, relevant response
+   - Pull down the notification shade again to continue with the next notification
+4. For each Instagram LIKE notification:
+   - Note who liked your post from the notification text
+   - Do NOT tap on it, just skip to the next notification
+5. Skip any notifications that are NOT from Instagram, and skip Instagram notifications
+   that are about follows, suggestions, or ads
+6. After processing all Instagram notifications, close the notification shade
+7. Report a summary of:
+   - How many comment notifications were found
+   - How many like notifications were found
+   - What replies you sent and to which comments
+"""
+
+[task.model]
+provider = "Google"
+model = "gemini-flash-latest"
+
+[task.options]
+reasoning = true
+vision = true
+max_steps = 30

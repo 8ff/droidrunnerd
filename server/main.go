@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -9,8 +10,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"regexp"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -104,6 +107,7 @@ func NewAPI(q *Queue) *API {
 	a.mux.HandleFunc("/run", a.handleRun)
 	a.mux.HandleFunc("/task/", a.handleTask)
 	a.mux.HandleFunc("/queue", a.handleQueue)
+	a.mux.HandleFunc("/deeplinks", a.handleDeeplinks)
 	a.mux.HandleFunc("/health", a.handleHealth)
 	return a
 }
@@ -250,6 +254,13 @@ func validateRequest(req *TaskRequest, apiKey string) error {
 		}
 	}
 
+	// Deeplink validation (if provided): must be a non-empty URI with a scheme
+	if req.Deeplink != "" {
+		if !strings.Contains(req.Deeplink, "://") {
+			return fmt.Errorf("invalid deeplink (must contain ://): %s", req.Deeplink)
+		}
+	}
+
 	return nil
 }
 
@@ -312,6 +323,129 @@ func (a *API) handleQueue(w http.ResponseWriter, r *http.Request) {
 	}); err != nil {
 		log.Printf("Failed to encode queue response: %v", err)
 	}
+}
+
+func (a *API) handleDeeplinks(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		writeError(w, "GET only", http.StatusMethodNotAllowed)
+		return
+	}
+
+	app := r.URL.Query().Get("app")
+	if app == "" {
+		writeError(w, "app query parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	// Validate package name
+	matched, _ := regexp.MatchString(`^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)+$`, app)
+	if !matched {
+		writeError(w, "invalid app package name: "+app, http.StatusBadRequest)
+		return
+	}
+
+	// Run adb shell dumpsys package
+	cmd := exec.Command("adb", "shell", "dumpsys", "package", app)
+	out, err := cmd.Output()
+	if err != nil {
+		writeError(w, "adb error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	deeplinks := parseDeeplinks(string(out))
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]any{
+		"app":       app,
+		"deeplinks": deeplinks,
+	}); err != nil {
+		log.Printf("Failed to encode deeplinks response: %v", err)
+	}
+}
+
+// parseDeeplinks extracts non-http/https deep link URIs from `dumpsys package` output.
+// It scans for intent-filter blocks, collects schemes and authorities per block,
+// then combines them into scheme://authority URIs.
+func parseDeeplinks(output string) []string {
+	seen := make(map[string]bool)
+	var schemes []string
+	var authorities []string
+
+	scanner := bufio.NewScanner(strings.NewReader(output))
+	inFilter := false
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+
+		// Detect intent-filter block boundaries
+		if strings.Contains(line, "filter") {
+			// Emit combinations from previous block
+			for _, s := range schemes {
+				if len(authorities) == 0 {
+					uri := s + "://"
+					if !seen[uri] {
+						seen[uri] = true
+					}
+				}
+				for _, a := range authorities {
+					uri := s + "://" + a
+					if !seen[uri] {
+						seen[uri] = true
+					}
+				}
+			}
+			schemes = nil
+			authorities = nil
+			inFilter = true
+			continue
+		}
+
+		if !inFilter {
+			continue
+		}
+
+		// Collect schemes (skip http and https)
+		if strings.HasPrefix(line, "Scheme: \"") {
+			scheme := strings.TrimPrefix(line, "Scheme: \"")
+			scheme = strings.TrimSuffix(scheme, "\"")
+			if scheme != "http" && scheme != "https" {
+				schemes = append(schemes, scheme)
+			}
+		}
+
+		// Collect authorities: format is Authority: "host": -1 (or similar port)
+		if strings.HasPrefix(line, "Authority: \"") {
+			rest := strings.TrimPrefix(line, "Authority: \"")
+			if idx := strings.Index(rest, "\""); idx >= 0 {
+				authority := rest[:idx]
+				authorities = append(authorities, authority)
+			}
+		}
+	}
+
+	// Emit final block
+	for _, s := range schemes {
+		if len(authorities) == 0 {
+			uri := s + "://"
+			if !seen[uri] {
+				seen[uri] = true
+			}
+		}
+		for _, a := range authorities {
+			uri := s + "://" + a
+			if !seen[uri] {
+				seen[uri] = true
+			}
+		}
+	}
+
+	// Collect and sort
+	var result []string
+	for uri := range seen {
+		result = append(result, uri)
+	}
+	sort.Strings(result)
+	return result
 }
 
 func generateRequestID() string {

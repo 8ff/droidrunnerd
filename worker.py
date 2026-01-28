@@ -5,6 +5,45 @@ DroidRun worker - reads task from stdin, runs agent, outputs result to stdout
 import sys
 import json
 import asyncio
+import subprocess
+import time
+
+
+def adb_go_home():
+    """Press the home button via ADB to return to the home screen."""
+    try:
+        subprocess.run(
+            ["adb", "shell", "input", "keyevent", "KEYCODE_HOME"],
+            capture_output=True, timeout=10,
+        )
+    except Exception as e:
+        print(f"[worker] adb go home failed: {e}", file=sys.stderr)
+
+
+def adb_launch_app(package: str):
+    """Launch an app by package name via ADB."""
+    try:
+        subprocess.run(
+            ["adb", "shell", "monkey", "-p", package,
+             "-c", "android.intent.category.LAUNCHER", "1"],
+            capture_output=True, timeout=10,
+        )
+        time.sleep(2)  # Wait for app to start
+    except Exception as e:
+        print(f"[worker] adb launch {package} failed: {e}", file=sys.stderr)
+
+
+def adb_open_deeplink(uri: str):
+    """Open a deep link URI via ADB (using VIEW intent)."""
+    try:
+        subprocess.run(
+            ["adb", "shell", "am", "start", "-a",
+             "android.intent.action.VIEW", "-d", uri],
+            capture_output=True, timeout=10,
+        )
+        time.sleep(2)  # Wait for deep link to resolve
+    except Exception as e:
+        print(f"[worker] adb open deeplink {uri} failed: {e}", file=sys.stderr)
 
 
 def create_llm(provider: str, model: str, api_key: str = None):
@@ -76,6 +115,14 @@ def main():
     real_stdout = sys.stdout
     sys.stdout = sys.stderr
 
+    # Launch app and/or open deep link via ADB (deterministic, doesn't depend on LLM)
+    app = task.get("app")
+    deeplink = task.get("deeplink")
+    if app:
+        adb_launch_app(app)
+    if deeplink:
+        adb_open_deeplink(deeplink)
+
     try:
         result = asyncio.run(run_task(task))
         # Restore stdout for final JSON output
@@ -84,6 +131,9 @@ def main():
     except Exception as e:
         sys.stdout = real_stdout
         print(json.dumps({"ok": False, "error": str(e)}))
+    finally:
+        # Always return to home screen when task ends
+        adb_go_home()
 
 
 if __name__ == "__main__":

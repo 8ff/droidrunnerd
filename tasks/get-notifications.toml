@@ -1,0 +1,32 @@
+# Get all unread notifications task
+
+[task]
+name = "get-notifications"
+description = "Report all unread notifications without clearing them"
+
+[task.goal]
+app = ""
+prompt = """
+1. Pull down the notification shade from the top of the screen (swipe down from the status bar)
+2. Read ALL notifications currently visible in the notification shade
+3. For each notification, capture:
+   - App name (the source app)
+   - Title/header text
+   - Body/content text
+   - Time if visible
+4. If there are grouped notifications, expand them to see all individual notifications
+5. DO NOT clear, dismiss, or interact with any notifications - just read them
+6. DO NOT tap on any notification
+7. Close the notification shade (swipe up or tap outside)
+8. Return to home screen
+9. Report a complete list of all notifications found with their details
+"""
+
+[task.model]
+provider = "Google"
+model = "gemini-flash-latest"
+
+[task.options]
+reasoning = true
+vision = true
+max_steps = 15
