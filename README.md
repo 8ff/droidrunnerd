@@ -96,6 +96,13 @@ export LLM_API_KEY="your-api-key"
 
 # Run a predefined task
 ./droidrun-client -server http://localhost:8000 -task tasks/whatsapp-reply.toml
+
+# Discover deep links for an app
+./droidrun-client -server http://localhost:8000 -deeplinks com.instagram.android
+
+# Run a task with a deep link (opens specific screen before the agent starts)
+./droidrun-client -server http://localhost:8000 -key $LLM_API_KEY \
+  -app com.instagram.android -deeplink "instagram://mainfeed" "like the first post"
 ```
 
 ### curl
@@ -121,6 +128,38 @@ curl -H "X-Server-Key: $DROIDRUN_SERVER_KEY" http://localhost:8000/task/TASK_ID
 # Cancel a task
 curl -X DELETE -H "X-Server-Key: $DROIDRUN_SERVER_KEY" http://localhost:8000/task/TASK_ID
 ```
+
+### Task Files
+
+Task files are TOML configs for reusable tasks. Example with a deep link:
+
+```toml
+[task]
+name = "instagram-feed"
+description = "Like the first post on Instagram feed"
+
+[task.goal]
+app = "com.instagram.android"
+deeplink = "instagram://mainfeed"
+prompt = """
+1. You are on the Instagram main feed.
+2. Like the first post you see.
+3. Return to home desktop when done.
+"""
+
+[task.model]
+provider = "Google"
+model = "gemini-flash-latest"
+
+[task.options]
+reasoning = true
+vision = false
+max_steps = 15
+```
+
+Run with: `./droidrun-client -task tasks/instagram-feed.toml -server http://localhost:8000`
+
+Use `-deeplinks` to discover available deep links for an app before writing task files.
 
 ## API Reference
 
@@ -154,9 +193,13 @@ X-API-Key: your-llm-api-key
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `goal` | string | Yes | - | What you want the agent to do |
+| `app` | string | No | - | Android package to launch (e.g. `com.whatsapp`) |
+| `deeplink` | string | No | - | Deep link URI to open (e.g. `instagram://mainfeed`) |
 | `provider` | string | No | `Google` | LLM provider (see below) |
 | `model` | string | No | auto | Model name |
 | `max_steps` | int | No | `30` | Maximum steps (1-100) |
+
+If both `app` and `deeplink` are set, the app is launched first, then the deep link is opened. If only `deeplink` is set, it opens directly (which implicitly opens the app).
 
 **Providers:**
 | Provider | Default Model |
@@ -233,6 +276,34 @@ X-Server-Key: your-server-key
 ```json
 {
   "status": "cancelled"
+}
+```
+
+---
+
+### GET /deeplinks
+
+Discover available deep links for an installed app. Runs `adb shell dumpsys package` and parses intent filters for non-http/https URI schemes.
+
+**Headers:**
+```
+X-Server-Key: your-server-key
+```
+
+**Query Parameters:**
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `app` | Yes | Android package name (e.g. `com.instagram.android`) |
+
+**Response:** `200 OK`
+```json
+{
+  "app": "com.instagram.android",
+  "deeplinks": [
+    "instagram://camera",
+    "instagram://mainfeed",
+    "instagram://reels_home"
+  ]
 }
 ```
 

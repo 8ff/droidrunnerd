@@ -1,0 +1,35 @@
+# Instagram in-app notification reply task
+
+[task]
+name = "instagram-notifications"
+description = "Navigate to Instagram notifications and reply to today's comments"
+
+[task.goal]
+app = "com.instagram.android"
+prompt = """
+1. You are now in Instagram. Tap the house icon in the bottom left corner to go to the home feed.
+2. Tap the heart icon in the top right corner to open your notifications/activity.
+3. You are now in the notifications screen. Look for notifications from TODAY only:
+   - Comments on your posts (these show the comment text)
+   - Ignore likes, follows, suggestions, and older notifications
+4. For each COMMENT notification from today:
+   - Tap on it to open the post with that comment
+   - Find the comment and tap "Reply"
+   - Write a friendly, relevant response to the comment
+   - Post the reply
+   - Tap the back arrow to return to notifications
+5. Continue until you've replied to all comment notifications from today.
+6. Return to home desktop when done.
+7. Report a summary of:
+   - How many comments you found from today
+   - What replies you sent and to whom
+"""
+
+[task.model]
+provider = "Google"
+model = "gemini-flash-latest"
+
+[task.options]
+reasoning = true
+vision = true
+max_steps = 40

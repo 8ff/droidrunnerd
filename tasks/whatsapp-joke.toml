@@ -1,0 +1,25 @@
+# WhatsApp joke task - send a joke to Boss via deep link
+
+[task]
+name = "whatsapp-joke"
+description = "Open WhatsApp chats, find Boss, and send him a joke"
+
+[task.goal]
+app = "com.whatsapp"
+prompt = """
+1. Navigate to the Chats tab (not Updates, Communities, or Calls).
+2. Find the chat with "Boss" - scroll through the chat list if needed.
+3. Open the chat with Boss.
+4. Type and send a short, clean, work-appropriate joke.
+5. Return to home desktop when done.
+6. Report what joke you sent.
+"""
+
+[task.model]
+provider = "Google"
+model = "gemini-flash-latest"
+
+[task.options]
+reasoning = true
+vision = false
+max_steps = 15
